@@ -5,7 +5,13 @@ from dataclasses import dataclass
 from collections import deque
 
 from typing_extensions import get_args
-from typing_inspect import is_typevar, is_new_type, is_generic_type, get_bound, get_constraints
+from typing_inspect import (
+    is_typevar,
+    is_new_type,
+    is_generic_type,
+    get_bound,
+    get_constraints,
+)
 
 from ..type_utils import (
     get_real_origin,
@@ -14,6 +20,7 @@ from ..type_utils import (
     is_generic_protocol_type,
     get_generic_mapping,
 )
+from ..config import check_config, CheckConfig
 
 In = TypeVar("In", contravariant=True)
 
@@ -233,29 +240,35 @@ def extract_typevar_mapping(
 
 
 def check_typevar_model(
-    instance: TypeVarModel | Type | Any, template: TypeVarModel | Type | Any
+    instance: TypeVarModel | Type | Any,
+    template: TypeVarModel | Type | Any,
+    config: CheckConfig = check_config,
 ) -> bool:
     if not isinstance(template, TypeVarModel):
         template = gen_typevar_model(template)
     if not isinstance(instance, TypeVarModel):
         instance = gen_typevar_model(instance)
 
+    # from pprint import pprint
+    # pprint(template)
+    # pprint(instance)
+
     if template.origin in (types.UnionType, Union) and instance.origin in (
         types.UnionType,
         Union,
     ):
         return all(
-            check_typevar_model(i_sub_arg, template)
+            check_typevar_model(i_sub_arg, template, config)
             for i_sub_arg in instance.args  # type: ignore
         )
     if template.origin in (Union, types.UnionType):
         return any(
-            check_typevar_model(instance, t_sub_arg)
+            check_typevar_model(instance, t_sub_arg, config)
             for t_sub_arg in template.args  # type: ignore
         )
     if instance.origin in (Union, types.UnionType):
         return all(
-            check_typevar_model(i_sub_arg, template)
+            check_typevar_model(i_sub_arg, template, config)
             for i_sub_arg in instance.args  # type: ignore
         )
 
@@ -264,26 +277,32 @@ def check_typevar_model(
         if is_generic_type(instance.get_instance()):
             tp_mapping = get_generic_mapping(instance.get_instance())
             return like_issubclass(
-                instance.origin, template.origin, tp_mapping, ex_mapping
+                instance.origin, template.origin, tp_mapping, ex_mapping, config=config
             )
 
-        return like_issubclass(instance.origin, template.origin, ex_mapping=ex_mapping)
+        return like_issubclass(
+            instance.origin, template.origin, ex_mapping=ex_mapping, config=config
+        )
     elif is_typevar(template.origin):
         bound = get_bound(template.origin)
         if bound is not None:
-            if not check_typevar_model(instance.origin, bound):
+            if not check_typevar_model(instance.origin, bound, config):
                 return False
         constraints = get_constraints(template.origin)
         if constraints:
-            if not any(check_typevar_model(instance.origin, c) for c in constraints):
+            if not any(
+                check_typevar_model(instance.origin, c, config) for c in constraints
+            ):
                 return False
         return True
     elif is_new_type(instance.origin) and is_new_type(template.origin):
-        return like_issubclass(instance.origin, template.origin)
+        return like_issubclass(instance.origin, template.origin, config=config)
     elif is_new_type(instance.origin):
-        return check_typevar_model(instance.origin.__supertype__, template)
+        return check_typevar_model(
+            instance.origin.__supertype__, template, config=config
+        )
 
-    if not like_issubclass(instance.origin, template.origin):
+    if not like_issubclass(instance.origin, template.origin, config=config):
         return False
     if template.args is None and instance.args is None:
         return True
@@ -296,14 +315,14 @@ def check_typevar_model(
 
     for i_arg, t_arg in zip(instance.args, template.args):  # type: ignore
         if isinstance(t_arg, TypeVarModel) and isinstance(i_arg, TypeVarModel):
-            if not check_typevar_model(i_arg, t_arg):
+            if not check_typevar_model(i_arg, t_arg, config):
                 return False
         elif isinstance(t_arg, list) and isinstance(i_arg, list):
             for i_sub_arg, t_sub_arg in zip(i_arg, t_arg):
                 if isinstance(t_sub_arg, TypeVarModel) and isinstance(
                     i_sub_arg, TypeVarModel
                 ):
-                    if not check_typevar_model(i_sub_arg, t_sub_arg):
+                    if not check_typevar_model(i_sub_arg, t_sub_arg, config):
                         return False
                 else:
                     return False

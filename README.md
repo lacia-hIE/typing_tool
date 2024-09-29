@@ -5,9 +5,9 @@
 _**Typing_Tool** 是一个 Python 类型工具_
 
 
- [![CodeFactor](https://www.codefactor.io/repository/github/LaciaProject/typing_tool/badge)](https://www.codefactor.io/repository/github/LaciaProject/typing_tool)
- [![GitHub](https://img.shields.io/github/license/LaciaProject/typing_tool)](https://github.com/LaciaProject/typing_tool/blob/master/LICENSE)
- [![CodeQL](https://github.com/LaciaProject/typing_tool/workflows/CodeQL/badge.svg)](https://github.com/LaciaProject/typing_tool/blob/master/.github/workflows/codeql.yml)
+ [![CodeFactor](https://www.codefactor.io/repository/github/lacia-hIE/typing_tool/badge)](https://www.codefactor.io/repository/github/lacia-hIE/typing_tool)
+ [![GitHub](https://img.shields.io/github/license/lacia-hIE/typing_tool)](https://github.com/lacia-hIE/typing_tool/blob/master/LICENSE)
+ [![CodeQL](https://github.com/lacia-hIE/typing_tool/workflows/CodeQL/badge.svg)](https://github.com/lacia-hIE/typing_tool/blob/master/.github/workflows/codeql.yml)
 
 </div>
 
@@ -46,6 +46,7 @@ typing_tool 是一个用于增强 Python 类型检查能力的工具库。特别
 * Protocol[T] 泛型协议类型
 * TypedDict 字典类型
 * dataclass 数据类
+* dataclass[T] 泛型数据类
 
 ### like_issubclass
 
@@ -58,6 +59,13 @@ typing_tool 是一个用于增强 Python 类型检查能力的工具库。特别
 * 泛型类 Generic[T]
 * Protocol 协议类型
 * Protocol[T] 泛型协议类型
+
+### Check Config
+
+* depth: 设置类型检查的最大深度
+* max_sample: 设置最大采样数
+* protocol_type_strict: 是否严格检查 Protocol 类型
+* dataclass_type_strict: 是否严格检查 dataclass 类型
 
 ### 注意
 

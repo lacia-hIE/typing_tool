@@ -1,10 +1,21 @@
-from typing import List, Dict, Type, Union, TypeVar, Protocol, Generic, Iterable, Optional
+from typing import (
+    List,
+    Dict,
+    Type,
+    Union,
+    TypeVar,
+    Protocol,
+    Generic,
+    Sequence,
+    Optional,
+)
 from typing_extensions import Annotated, TypedDict
 from dataclasses import dataclass
 import pytest
 from pydantic import Field
 
 from typing_tool import like_isinstance
+from typing_tool.config import CheckConfig
 
 
 # 定义 Protocol 和 TypedDict 以便测试
@@ -34,13 +45,16 @@ class MyGenericClass(Generic[T]):
 
 
 class MyProtocolGeneric(Protocol[T, V]):
-    a: Iterable[dict[T, V]]
+    a: Sequence[dict[T, V]]
 
     def output(self, value: T) -> T: ...
 
 
 class ImplMyProtocolClass:
     a: list[dict[str, int]]
+
+    def __init__(self, a: list[dict[str, int]]) -> None:
+        self.a = a
 
     def output(self, value: str) -> str:
         return value
@@ -49,11 +63,20 @@ class ImplMyProtocolClass:
 class ImplMyGeneric(Generic[T, K]):
     a: list[dict[T, K]]
 
+    def __init__(self, a: list[dict[T, K]]) -> None:
+        self.a = a
+
     def output(self, value: T) -> T:
         return value
 
-class ImplMyGeneric2(ImplMyGeneric[int, str]):
-    ...
+
+class ImplMyGeneric2(ImplMyGeneric[int, str]): ...
+
+
+@dataclass
+class MyGenericDataClass(Generic[T, V]):
+    a: Sequence[dict[T, V]]
+
 
 @dataclass
 class MyDataClass:
@@ -139,21 +162,85 @@ def test_like_isinstance():
     assert not like_isinstance(NotImplMyProtocol(), MyProtocol)
 
     # 泛型 Protocol 测试
-    assert like_isinstance(ImplMyProtocolClass(), MyProtocolGeneric[str, int])
-    assert not like_isinstance(ImplMyProtocolClass(), MyProtocolGeneric[int, str])
+    assert like_isinstance(ImplMyProtocolClass([]), MyProtocolGeneric[str, int])
+    assert like_isinstance(
+        ImplMyProtocolClass([]),
+        MyProtocolGeneric[str, int],
+        config=CheckConfig(protocol_type_strict=True),
+    )
+    assert like_isinstance(ImplMyProtocolClass([]), MyProtocolGeneric[int, str])
+    assert not like_isinstance(
+        ImplMyProtocolClass([]),
+        MyProtocolGeneric[int, str],
+        config=CheckConfig(protocol_type_strict=True),
+    )
+    assert not like_isinstance(
+        ImplMyProtocolClass([{"a": 1}]),
+        MyProtocolGeneric[int, str],
+        config=CheckConfig(protocol_type_strict=True),
+    )
 
-    assert like_isinstance(ImplMyGeneric[int, str](), MyProtocolGeneric[int, str])
-    assert not like_isinstance(ImplMyGeneric[str, int](), MyProtocolGeneric[int, str])
+    assert like_isinstance(ImplMyGeneric[int, str]([]), MyProtocolGeneric[int, str])
+    assert like_isinstance(
+        ImplMyGeneric[int, str]([]),
+        MyProtocolGeneric[int, str],
+        config=CheckConfig(protocol_type_strict=True),
+    )
+    assert like_isinstance(ImplMyGeneric[str, int]([]), MyProtocolGeneric[int, str])
+    assert not like_isinstance(
+        ImplMyGeneric[str, int]([]),
+        MyProtocolGeneric[int, str],
+        config=CheckConfig(protocol_type_strict=True),
+    )
+    assert not like_isinstance(
+        ImplMyGeneric[str, int]([{"a": 1}]),
+        MyProtocolGeneric[int, str],
+        config=CheckConfig(protocol_type_strict=True),
+    )
 
-    assert like_isinstance(ImplMyGeneric2(), MyProtocolGeneric[int, str])
-    assert not like_isinstance(ImplMyGeneric2(), MyProtocolGeneric[str, int])
+    assert like_isinstance(ImplMyGeneric2([]), MyProtocolGeneric[int, str])
+    assert like_isinstance(
+        ImplMyGeneric2([]),
+        MyProtocolGeneric[int, str],
+        config=CheckConfig(protocol_type_strict=True),
+    )
+    assert like_isinstance(ImplMyGeneric2([]), MyProtocolGeneric[str, int])
+    assert not like_isinstance(
+        ImplMyGeneric2([]),
+        MyProtocolGeneric[str, int],
+        config=CheckConfig(protocol_type_strict=True),
+    )
+    assert not like_isinstance(
+        ImplMyGeneric2([{1: "a"}]),
+        MyProtocolGeneric[str, int],
+        config=CheckConfig(protocol_type_strict=True),
+    )
 
     # 数据类测试
     valid_data_class_instance = MyDataClass(key="test", value=123)
-    invalid_data_class_instance = MyDataClass(key="test", value="123abc") # type: ignore
+    invalid_data_class_instance = MyDataClass(key="test", value="123abc")  # type: ignore
 
     assert like_isinstance(valid_data_class_instance, MyDataClass)
-    assert not like_isinstance(invalid_data_class_instance, MyDataClass)
+    assert like_isinstance(
+        valid_data_class_instance,
+        MyDataClass,
+        config=CheckConfig(dataclass_type_strict=True),
+    )
+    assert like_isinstance(invalid_data_class_instance, MyDataClass)
+    assert not like_isinstance(
+        invalid_data_class_instance,
+        MyDataClass,
+        config=CheckConfig(dataclass_type_strict=True, protocol_type_strict=True),
+    )
+
+    # 泛型数据类测试
+    valid_generic_data_class_instance = MyGenericDataClass[int, str]([{1: "a"}])
+    invalid_generic_data_class_instance = MyGenericDataClass[int, str]([{1: 2}]) # type: ignore
+    assert like_isinstance(valid_generic_data_class_instance, MyGenericDataClass[int, str])
+    assert like_isinstance(invalid_generic_data_class_instance, MyGenericDataClass[int, str])
+    assert like_isinstance(invalid_generic_data_class_instance, MyGenericDataClass[int, int])
+    assert not like_isinstance(invalid_generic_data_class_instance, MyGenericDataClass[int, str], config=CheckConfig(dataclass_type_strict=True, protocol_type_strict=True))
+    assert like_isinstance(invalid_generic_data_class_instance, MyGenericDataClass[int, int], config=CheckConfig(dataclass_type_strict=True, protocol_type_strict=True))
 
 
     # TypedDict测试

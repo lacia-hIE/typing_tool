@@ -1,8 +1,20 @@
 import pytest
 
-from typing import List, Dict, Type, Union, TypeVar, Protocol, Generic, Iterable, Optional, NewType
+from typing import (
+    List,
+    Dict,
+    Type,
+    Union,
+    TypeVar,
+    Protocol,
+    Generic,
+    Iterable,
+    Optional,
+    NewType,
+)
 
 from typing_tool import like_issubclass
+from typing_tool.config import CheckConfig
 
 
 # 定义 Protocol 和 TypedDict 以便测试
@@ -21,6 +33,7 @@ V = TypeVar("V")
 K = TypeVar("K")
 
 MYSTR = NewType("MYSTR", str)
+
 
 class MyGenericClass(Generic[T]):
     def __init__(self, value: T):
@@ -46,8 +59,9 @@ class ImplMyGeneric(Generic[T, K]):
     def output(self, value: T) -> T:
         return value
 
-class ImplMyGeneric2(ImplMyGeneric[int, str]):
-    ...
+
+class ImplMyGeneric2(ImplMyGeneric[int, str]): ...
+
 
 def test_like_issubclass():
     # 常见类型测试
@@ -77,7 +91,7 @@ def test_like_issubclass():
     assert like_issubclass(Optional[int], Optional[int | str])
     assert not like_issubclass(Optional[int], Optional[str])
     assert not like_issubclass(Optional[int], str | None)
-    
+
     # Type类型测试
     assert like_issubclass(Type[int], Type)
     assert not like_issubclass(Type[int], int)
@@ -103,13 +117,33 @@ def test_like_issubclass():
 
     # 泛型 Protocol 测试
     assert like_issubclass(ImplMyProtocolClass, MyProtocolGeneric[str, int])
-    assert not like_issubclass(ImplMyProtocolClass, MyProtocolGeneric[int, str])
+    assert like_issubclass(ImplMyProtocolClass, MyProtocolGeneric[int, str])
+    assert not like_issubclass(
+        ImplMyProtocolClass,
+        MyProtocolGeneric[int, str],
+        config=CheckConfig(protocol_type_strict=True),
+    )
 
     assert like_issubclass(ImplMyGeneric[int, str], MyProtocolGeneric[int, str])
-    assert not like_issubclass(ImplMyGeneric[str, int], MyProtocolGeneric[int, str])
+    assert like_issubclass(ImplMyGeneric[str, int], MyProtocolGeneric[str, int])
+    assert not like_issubclass(
+        ImplMyGeneric[str, int],
+        MyProtocolGeneric[int, str],
+        config=CheckConfig(protocol_type_strict=True),
+    )
 
     assert like_issubclass(ImplMyGeneric2, MyProtocolGeneric[int, str])
-    assert not like_issubclass(ImplMyGeneric2, MyProtocolGeneric[str, int])
+    assert like_issubclass(
+        ImplMyGeneric2,
+        MyProtocolGeneric[int, str],
+        config=CheckConfig(protocol_type_strict=True),
+    )
+    assert like_issubclass(ImplMyGeneric2, MyProtocolGeneric[str, int])
+    assert not like_issubclass(
+        ImplMyGeneric2,
+        MyProtocolGeneric[str, int],
+        config=CheckConfig(protocol_type_strict=True),
+    )
 
     # NewType测试
     assert like_issubclass(MYSTR, str)
