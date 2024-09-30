@@ -249,10 +249,6 @@ def check_typevar_model(
     if not isinstance(instance, TypeVarModel):
         instance = gen_typevar_model(instance)
 
-    # from pprint import pprint
-    # pprint(template)
-    # pprint(instance)
-
     if template.origin in (types.UnionType, Union) and instance.origin in (
         types.UnionType,
         Union,

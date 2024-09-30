@@ -205,7 +205,6 @@ def attribute_check_instance(
     config: CheckConfig = check_config,
 ):
     from .typevar import gen_typevar_model
-    # print(tp_mapping, ex_mapping)
     hetp = get_type_hints(etp, include_extras=True)
     for key in hetp:
         if not hasattr(tp, key):
@@ -216,7 +215,6 @@ def attribute_check_instance(
                 if ex_mapping is None
                 else gen_typevar_model(hetp[key]).get_instance(ex_mapping)
             )
-            print(getattr(tp, key), t)
             if not like_isinstance(getattr(tp, key), t, config=config):
                 return False
     return True
