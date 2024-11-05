@@ -7,3 +7,4 @@ from .typevar import (
     iter_deep_type,
     extract_typevar_mapping,
 )
+from .overload import auto_overload
