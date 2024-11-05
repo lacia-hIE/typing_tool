@@ -82,7 +82,7 @@ def process(responsel: int, response2: str) -> tuple[int, str]:
 @overload
 def process(response: bytes) -> str:
     return response.decode()
-@auto_overload
+@auto_overload()
 def process(*args, **kwargs) -> Any: ...
 assert process(None) is None
 assert process(1, "2") == (1, "2")
