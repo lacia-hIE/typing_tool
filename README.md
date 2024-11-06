@@ -70,7 +70,8 @@ typing_tool 是一个用于增强 Python 类型检查能力的工具库。特别
 ### 自动重载
 
 ```python
-from typing import overload, Any
+from typing import Any
+from typing_extensions import overload
 from typing_tool import auto_overload
 
 @overload
