@@ -70,20 +70,21 @@ typing_tool 是一个用于增强 Python 类型检查能力的工具库。特别
 ### 自动重载
 
 ```python
-
+from typing import overload, Any
 from typing_tool import auto_overload
 
 @overload
 def process(response: None) -> None:
     return None
 @overload
-def process(responsel: int, response2: str) -> tuple[int, str]:
+def process(response1: int, response2: str) -> tuple[int, str]:
     return response1, response2
 @overload
 def process(response: bytes) -> str:
     return response.decode()
 @auto_overload()
 def process(*args, **kwargs) -> Any: ...
+
 assert process(None) is None
 assert process(1, "2") == (1, "2")
 assert process(b"test") == "test"
