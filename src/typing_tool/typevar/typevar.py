@@ -1,10 +1,10 @@
 from __future__ import annotations
-from typing import TypeVar, List, Type, Any, Optional, Union
+from typing import TypeVar, List, Type, Any, Optional, Union, Literal
 import types
 from dataclasses import dataclass
 from collections import deque
 
-from typing_extensions import get_args
+from typing_extensions import get_args, is_protocol
 from typing_inspect import (
     is_typevar,
     is_new_type,
@@ -268,14 +268,13 @@ def check_typevar_model(
             for i_sub_arg in instance.args  # type: ignore
         )
 
-    if is_generic_protocol_type(template.origin):
+    if is_generic_protocol_type(template.origin) or is_protocol(template.origin):
         ex_mapping = get_generic_mapping(template.get_instance())
         if is_generic_type(instance.get_instance()):
             tp_mapping = get_generic_mapping(instance.get_instance())
             return like_issubclass(
                 instance.origin, template.origin, tp_mapping, ex_mapping, config=config
             )
-
         return like_issubclass(
             instance.origin, template.origin, ex_mapping=ex_mapping, config=config
         )
@@ -306,6 +305,13 @@ def check_typevar_model(
         return False
     if template.args is None and instance.args is not None:
         return True
+    
+    if instance.origin == Literal and template.origin == Literal:
+        for i_arg in instance.args or []:
+            if i_arg not in (template.args or []):
+                return False
+        return True
+            
     if len(template.args) != len(instance.args):  # type: ignore
         return False
 

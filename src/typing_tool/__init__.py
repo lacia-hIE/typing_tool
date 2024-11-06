@@ -8,3 +8,4 @@ from .typevar import (
     extract_typevar_mapping,
 )
 from .overload import auto_overload
+from .config import CheckConfig

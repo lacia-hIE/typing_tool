@@ -62,10 +62,10 @@ typing_tool 是一个用于增强 Python 类型检查能力的工具库。特别
 
 ### Check Config
 
-* depth: 设置类型检查的最大深度
-* max_sample: 设置最大采样数
-* protocol_type_strict: 是否严格检查 Protocol 类型
-* dataclass_type_strict: 是否严格检查 dataclass 类型
+* `depth`: 设置类型检查的最大深度，默认值为 `5`
+* `max_sample`: 设置最大采样数，默认值为 `-1`
+* `protocol_type_strict`: 是否严格检查 `Protocol` 类型，默认值为 `False`
+* `dataclass_type_strict`: 是否严格检查 `dataclass` 类型，默认值为 `False`
 
 ### 自动重载
 

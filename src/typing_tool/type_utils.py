@@ -26,6 +26,10 @@ def is_generic(obj) -> bool:
     return hasattr(obj, "__parameters__") and len(obj.__parameters__) > 0
 
 
+def is_descriptor(obj):
+    return hasattr(obj, "__get__")
+
+
 def get_real_origin(tp):
     """Get the unsubscripted version of a type.
 
@@ -169,7 +173,7 @@ def get_generic_mapping(cls):
     return res
 
 
-def attribute_check_subclass(
+def method_hint_check_subclass(
     tp,
     etp,
     tp_mapping: Optional[dict] = None,
@@ -182,17 +186,55 @@ def attribute_check_subclass(
     hetp = get_type_hints(etp, include_extras=True)
     for key in hetp:
         if key not in htp:
-            return False
+            if not hasattr(tp, key):
+                return False
+            if config.protocol_type_strict or config.dataclass_type_strict:
+                t = (
+                    hetp[key]
+                    if ex_mapping is None
+                    else gen_typevar_model(hetp[key]).get_instance(ex_mapping)
+                )
+                if not like_isinstance(getattr(tp, key), t, config=config):
+                    return False
+            continue
+
         if config.protocol_type_strict:
-            i, t = (
+            i = (
                 htp[key]
                 if tp_mapping is None
-                else gen_typevar_model(htp[key]).get_instance(tp_mapping),
+                else gen_typevar_model(htp[key]).get_instance(tp_mapping)
+            )
+            t = (
                 hetp[key]
                 if ex_mapping is None
-                else gen_typevar_model(hetp[key]).get_instance(ex_mapping),
+                else gen_typevar_model(hetp[key]).get_instance(ex_mapping)
             )
             if not check_typevar_model(i, t, config=config):
+                return False
+    return True
+
+
+def attribute_check_subclass(
+    tp,
+    etp,
+    tp_mapping: Optional[dict] = None,
+    ex_mapping: Optional[dict] = None,
+    config: CheckConfig = check_config,
+):
+    from .typevar import check_typevar_model, gen_typevar_model
+
+    htp = dir(tp)
+    hetp = get_type_hints(etp, include_extras=True)
+    for key in hetp:
+        if key not in htp:
+            return False
+        if config.protocol_type_strict:
+            t = (
+                hetp[key]
+                if ex_mapping is None
+                else gen_typevar_model(hetp[key]).get_instance(ex_mapping)
+            )
+            if not like_isinstance(getattr(tp, key), t, config=config):
                 return False
     return True
 
@@ -205,11 +247,12 @@ def attribute_check_instance(
     config: CheckConfig = check_config,
 ):
     from .typevar import gen_typevar_model
+
     hetp = get_type_hints(etp, include_extras=True)
     for key in hetp:
         if not hasattr(tp, key):
             return False
-        if config.protocol_type_strict:
+        if config.protocol_type_strict or config.dataclass_type_strict:
             t = (
                 hetp[key]
                 if ex_mapping is None
@@ -234,7 +277,7 @@ def method_check_subclass(
             continue
         if key not in dhp:
             return False
-        if not attribute_check_subclass(
+        if not method_hint_check_subclass(
             getattr(tp, key),
             getattr(etp, key),
             tp_mapping,
@@ -259,7 +302,7 @@ def method_check_instance(
             continue
         if key not in dhp:
             return False
-        if not attribute_check_subclass(
+        if not method_hint_check_subclass(
             getattr(tp, key),
             getattr(etp, key),
             tp_mapping,
@@ -280,7 +323,13 @@ def check_protocol_subclass(
     ex_mapping: Optional[dict] = None,
     config: CheckConfig = check_config,
 ):
-    return attribute_check_subclass(
+    if config.protocol_type_strict:
+        return attribute_check_subclass(
+            tp, expected_type, tp_mapping, ex_mapping, config=config
+        ) and method_check_subclass(
+            tp, expected_type, tp_mapping, ex_mapping, config=config
+        )
+    return method_hint_check_subclass(
         tp, expected_type, tp_mapping, ex_mapping, config=config
     ) and method_check_subclass(
         tp, expected_type, tp_mapping, ex_mapping, config=config
@@ -325,13 +374,6 @@ def check_dataclass_subclass(
     if config.dataclass_type_strict:
         if not issubclass(tp, expected_type):
             return False
-        return attribute_check_subclass(
-            tp,
-            expected_type,
-            tp_mapping=tp_mapping or get_generic_mapping(tp),
-            ex_mapping=ex_mapping or get_generic_mapping(expected_type),
-            config=config,
-        )
 
     return issubclass(tp, get_origin(expected_type) or expected_type)
 
@@ -446,6 +488,8 @@ def like_isinstance(obj, expected_type, config: CheckConfig = check_config):
 
     if is_generic_protocol_type(expected_type):
         return check_protocol_instance(obj, expected_type, config=config)
+    elif is_protocol(expected_type):
+        return check_protocol_instance(obj, expected_type, config=config)
     elif is_generic_dataclass_type(expected_type):
         return check_dataclass_instance(obj, expected_type, config=config)
     elif is_dataclass(expected_type):
@@ -453,12 +497,10 @@ def like_isinstance(obj, expected_type, config: CheckConfig = check_config):
 
     try:
         t = TypeAdapter(expected_type)
-        t.validate_python(obj, strict=True, from_attributes=True)
-        res = True
-    except Exception:
+        t.validate_python(obj, strict=True)
+        return True
+    except Exception as e:
         ...
-    if res:
-        return res
     if get_real_origin(expected_type) == Type:
         try:
             res = check_typevar_model(Type[obj], expected_type, config=config)
@@ -466,6 +508,5 @@ def like_isinstance(obj, expected_type, config: CheckConfig = check_config):
             ...
     if res:
         return res
-
     obj_type = deep_type(obj, depth=config.depth, max_sample=config.max_sample)
     return check_typevar_model(obj_type, expected_type, config=config)

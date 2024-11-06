@@ -13,12 +13,13 @@ from typing import (
 from typing_extensions import get_overloads
 
 from .type_utils import like_isinstance
+from .config import CheckConfig, check_config
 
 T = TypeVar("T")
 P = ParamSpec("P")
 
 
-def check_func_signature(func: Callable, hints: dict, args, kwargs) -> bool:
+def check_func_signature(func: Callable, hints: dict, args, kwargs, config: CheckConfig = check_config) -> bool:
     sig = inspect.signature(func)
     try:
         bound = sig.bind(*args, **kwargs)
@@ -27,7 +28,7 @@ def check_func_signature(func: Callable, hints: dict, args, kwargs) -> bool:
     for name, value in bound.arguments.items():
         if name in hints:
             try:
-                if not like_isinstance(value, hints[name]):
+                if not like_isinstance(value, hints[name], config=config):
                     raise TypeError(f"Value {value} is not instance of {hints[name]}")
 
                 bound.arguments[name] = value
@@ -39,6 +40,7 @@ def check_func_signature(func: Callable, hints: dict, args, kwargs) -> bool:
 def auto_overload(
     localns: dict[str, Any] | None = None,
     globalns: dict[str, Any] | None = None,
+    config: CheckConfig = check_config,
 ):
     def decorator(func: Callable[P, T]):
         funcs = get_overloads(func)
@@ -49,7 +51,7 @@ def auto_overload(
                 hints = get_type_hints(
                     f, include_extras=True, globalns=globalns, localns=localns
                 )
-                if check_func_signature(f, hints, args, kwargs):
+                if check_func_signature(f, hints, args, kwargs, config):
                     return f(*args, **kwargs)  # type: ignore
             raise TypeError("No matching overload found")
 

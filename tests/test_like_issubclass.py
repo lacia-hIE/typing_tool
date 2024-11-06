@@ -60,7 +60,8 @@ class ImplMyGeneric(Generic[T, K]):
         return value
 
 
-class ImplMyGeneric2(ImplMyGeneric[int, str]): ...
+class ImplMyGeneric2(ImplMyGeneric[int, str]):
+    a = [{1: "1"}]
 
 
 def test_like_issubclass():
