@@ -305,13 +305,13 @@ def check_typevar_model(
         return False
     if template.args is None and instance.args is not None:
         return True
-    
+
     if instance.origin == Literal and template.origin == Literal:
         for i_arg in instance.args or []:
             if i_arg not in (template.args or []):
                 return False
         return True
-            
+
     if len(template.args) != len(instance.args):  # type: ignore
         return False
 

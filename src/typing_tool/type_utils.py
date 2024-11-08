@@ -13,7 +13,7 @@ from typing import (
     get_origin,
     Optional,
 )
-from typing_extensions import get_type_hints, get_args, is_protocol
+from typing_extensions import get_type_hints, get_args, is_protocol, is_typeddict, TypedDict
 from typing_inspect import get_generic_type
 
 from .config import check_config, CheckConfig
@@ -473,6 +473,8 @@ def like_issubclass(
                 ex_mapping=ex_mapping,
                 config=config,
             )
+        elif is_typeddict(tp) and expected_type is TypedDict:
+            return True
         elif issubclass(tp, expected_type):
             return True
     except TypeError:

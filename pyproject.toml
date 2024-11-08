@@ -13,6 +13,7 @@ dependencies = [
 requires-python = ">=3.10"
 readme = "README.md"
 license = {text = "MIT"}
+homepage = "https://github.com/lacia-hIE/typing_tool"
 
 [build-system]
 requires = ["pdm-backend"]
