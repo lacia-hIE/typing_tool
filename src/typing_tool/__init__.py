@@ -9,3 +9,11 @@ from .typevar import (
 )
 from .overload import auto_overload
 from .config import CheckConfig
+from .call import (
+    create_injector,
+    auto_inject,
+    name_like,
+    type_like,
+    any_like,
+    register_dependency,
+)
