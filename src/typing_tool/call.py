@@ -10,9 +10,10 @@ T = TypeVar("T")
 
 
 class ParamInterface:
-    def __init__(self, name: str, param: inspect.Parameter):
+    def __init__(self, name: str, param: inspect.Parameter, annotation: Any):
         self.name = name
         self.param = param
+        self.annotation = annotation
 
 
 def type_like(
@@ -20,7 +21,7 @@ def type_like(
     name: str,
     obj: Any,
 ):
-    return like_isinstance(obj, arg.param.annotation)
+    return like_isinstance(obj, arg.annotation)
 
 
 def name_like(
@@ -110,12 +111,12 @@ def auto_inject(
         if isinstance(namespace, ChainMap):
             for mapping in reversed(namespace.maps):
                 for k, v in mapping.items():
-                    if like(ParamInterface(param_name, param), k, v):
+                    if like(ParamInterface(param_name, param, param_type), k, v):
                         found_dependency = v
                         break
         else:
             for name, obj in namespace.items():
-                if like(ParamInterface(param_name, param), name, obj):
+                if like(ParamInterface(param_name, param, param_type), name, obj):
                     found_dependency = obj
                     break
 
@@ -363,14 +364,14 @@ def _inject_and_create_instance(
         if isinstance(namespace, ChainMap):
             for mapping in reversed(namespace.maps):
                 for k, v in mapping.items():
-                    if like(ParamInterface(param_name, param), k, v):
+                    if like(ParamInterface(param_name, param, param_type), k, v):
                         found_dependency = v
                         break
                 if found_dependency is not None:
                     break
         else:
             for name, obj in namespace.items():
-                if like(ParamInterface(param_name, param), name, obj):
+                if like(ParamInterface(param_name, param, param_type), name, obj):
                     found_dependency = obj
                     break
 
@@ -638,14 +639,14 @@ def _create_injected_method(
             if isinstance(namespace, ChainMap):
                 for mapping in reversed(namespace.maps):
                     for k, v in mapping.items():
-                        if like(ParamInterface(param_name, param), k, v):
+                        if like(ParamInterface(param_name, param, param_type), k, v):
                             found_dependency = v
                             break
                     if found_dependency is not None:
                         break
             else:
                 for name, obj in namespace.items():
-                    if like(ParamInterface(param_name, param), name, obj):
+                    if like(ParamInterface(param_name, param, param_type), name, obj):
                         found_dependency = obj
                         break
 
