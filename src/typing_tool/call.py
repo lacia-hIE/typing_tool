@@ -39,7 +39,7 @@ def any_like(
 def auto_inject(
     func: Callable,
     namespace: Mapping[str, Any],
-    like: Callable[[ParamInterface, str, Any], bool],
+    like: Callable[[ParamInterface, str, Any], bool] = type_like,
 ) -> Any:
     """
     自动依赖注入函数
@@ -49,6 +49,7 @@ def auto_inject(
     Args:
         func: 需要调用的函数
         namespace: 包含可用依赖项的命名空间字典
+        like: 判断依赖项是否匹配的函数，默认使用type_like
 
     Returns:
         函数执行的结果
@@ -58,7 +59,11 @@ def auto_inject(
         TypeError: 当参数绑定类型不匹配时
     """
     # 获取函数签名
-    sig = inspect.signature(func)
+    is_class = inspect.isclass(func)
+    if is_class:
+        sig = inspect.signature(func.__init__)
+    else:
+        sig = inspect.signature(func)
     # 获取类型提示
     hints = get_type_hints(func, include_extras=True)
 
@@ -66,13 +71,27 @@ def auto_inject(
     positional_args = []
     keyword_args = {}
 
+    # 对于类，获取第一个参数名（通常是实例参数如 self, this, instance 等）
+    first_param_name = None
+    if is_class:
+        param_names = list(sig.parameters.keys())
+        if param_names:
+            first_param_name = param_names[0]
+
     # 遍历函数的每个参数
     for param_name, param in sig.parameters.items():
+        # 如果是类的 __init__ 方法，跳过第一个参数（实例参数）
+        if is_class and param_name == first_param_name:
+            continue
+            
         # 获取参数的类型提示
-        param_type = hints.get(param_name)
+        param_type = hints.get(param_name) or param.annotation
 
         # 如果没有类型提示，检查是否有默认值
-        if param_type is None:
+        if param_type is None or param_type is inspect.Parameter.empty:
+            # 特殊处理：跳过 *args 和 **kwargs 参数
+            if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+                continue
             if param.default == inspect.Parameter.empty:
                 raise ValueError(
                     f"Parameter '{param_name}' has no type hint and no default value"
@@ -117,26 +136,31 @@ def auto_inject(
                 f"Cannot find matching dependency for parameter '{param_name}' (type: {param_type})"
             )
 
-    # 使用sig.bind来验证参数绑定
-    try:
-        # 先尝试绑定位置参数和关键字参数
-        if positional_args and keyword_args:
-            bound_args = sig.bind(*positional_args, **keyword_args)
-        elif positional_args:
-            bound_args = sig.bind(*positional_args)
-        elif keyword_args:
-            bound_args = sig.bind(**keyword_args)
-        else:
-            bound_args = sig.bind()
+    # 对于类，我们需要直接调用类构造器，不需要验证 __init__ 的参数绑定
+    if is_class:
+        # 直接调用类构造器
+        return func(*positional_args, **keyword_args)
+    else:
+        # 对于普通函数，使用sig.bind来验证参数绑定
+        try:
+            # 先尝试绑定位置参数和关键字参数
+            if positional_args and keyword_args:
+                bound_args = sig.bind(*positional_args, **keyword_args)
+            elif positional_args:
+                bound_args = sig.bind(*positional_args)
+            elif keyword_args:
+                bound_args = sig.bind(**keyword_args)
+            else:
+                bound_args = sig.bind()
 
-        # 应用默认值
-        bound_args.apply_defaults()
+            # 应用默认值
+            bound_args.apply_defaults()
 
-    except TypeError as e:
-        raise TypeError(f"Parameter binding failed: {str(e)}")
+        except TypeError as e:
+            raise TypeError(f"Parameter binding failed: {str(e)}")
 
-    # 调用函数
-    return func(*bound_args.args, **bound_args.kwargs)
+        # 调用函数
+        return func(*bound_args.args, **bound_args.kwargs)
 
 
 def create_injector(

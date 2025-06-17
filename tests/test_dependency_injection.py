@@ -413,5 +413,235 @@ class TestErrorHandling:
             auto_inject(test_func, deps, type_like)
 
 
+class TestClassInjection:
+    """测试类的依赖注入功能"""
+    
+    def setup_method(self):
+        """每个测试方法前的设置"""
+        self.dependencies = {
+            'logger': ConsoleLogger(),
+            'db': MockDatabase(),
+            'config': "test_config",
+            'host': "localhost",
+            'port': 5432,
+            'name': "test_service",
+            'value': 42,
+            'data': "test_data"
+        }
+    
+    def test_standard_self_parameter(self):
+        """测试标准的 self 参数"""
+        class StandardService:
+            def __init__(self, name: str, logger: Logger):
+                self.name = name
+                self.logger = logger
+            
+            def get_info(self) -> str:
+                self.logger.log(f"Service: {self.name}")
+                return f"Standard service: {self.name}"
+        
+        instance = auto_inject(StandardService, self.dependencies, type_like)
+        assert isinstance(instance, StandardService)
+        # type_like 会选择第一个 str 类型的值，即 "test_config"
+        assert instance.name == "test_config"
+        assert isinstance(instance.logger, ConsoleLogger)
+        assert instance.get_info() == "Standard service: test_config"
+    
+    def test_nonstandard_this_parameter(self):
+        """测试非标准的 this 参数"""
+        class ThisService:
+            def __init__(this, name: str, value: int):
+                this.name = name
+                this.value = value
+            
+            def get_info(this) -> str:
+                return f"This service: {this.name}={this.value}"
+        
+        instance = auto_inject(ThisService, self.dependencies, type_like)
+        assert isinstance(instance, ThisService)
+        # type_like 会选择第一个 str 类型的值，即 "test_config"
+        assert instance.name == "test_config"
+        # type_like 会选择第一个 int 类型的值，即 port: 5432
+        assert instance.value == 5432
+        assert instance.get_info() == "This service: test_config=5432"
+    
+    def test_nonstandard_instance_parameter(self):
+        """测试非标准的 instance 参数"""
+        class InstanceService:
+            def __init__(instance, host: str, port: int):
+                instance.host = host
+                instance.port = port
+            
+            def get_connection(instance) -> str:
+                return f"Connection: {instance.host}:{instance.port}"
+        
+        instance = auto_inject(InstanceService, self.dependencies, type_like)
+        assert isinstance(instance, InstanceService)
+        # type_like 会选择第一个 str 类型的值，即 "test_config"
+        assert instance.host == "test_config"
+        assert instance.port == 5432
+        assert instance.get_connection() == "Connection: test_config:5432"
+    
+    def test_nonstandard_obj_parameter(self):
+        """测试非标准的 obj 参数"""
+        class ObjService:
+            def __init__(obj, data: str, logger: Logger):
+                obj.data = data
+                obj.logger = logger
+            
+            def process(obj) -> str:
+                obj.logger.log(f"Processing: {obj.data}")
+                return f"Processed: {obj.data}"
+        
+        instance = auto_inject(ObjService, self.dependencies, type_like)
+        assert isinstance(instance, ObjService)
+        # type_like 会选择第一个 str 类型的值，即 "test_config"
+        assert instance.data == "test_config"
+        assert isinstance(instance.logger, ConsoleLogger)
+        assert instance.process() == "Processed: test_config"
+    
+    def test_only_instance_parameter(self):
+        """测试只有实例参数的类"""
+        class OnlyInstanceParam:
+            def __init__(me):
+                me.initialized = True
+                me.default_value = "default"
+            
+            def is_ready(me) -> bool:
+                return me.initialized
+        
+        instance = auto_inject(OnlyInstanceParam, self.dependencies, type_like)
+        assert isinstance(instance, OnlyInstanceParam)
+        assert instance.initialized is True
+        assert instance.default_value == "default"
+        assert instance.is_ready() is True
+    
+    def test_no_parameters_class(self):
+        """测试无参数的类"""
+        class NoParams:
+            def __init__(self):
+                self.status = "ready"
+            
+            def get_status(self) -> str:
+                return self.status
+        
+        instance = auto_inject(NoParams, self.dependencies, type_like)
+        assert isinstance(instance, NoParams)
+        assert instance.status == "ready"
+        assert instance.get_status() == "ready"
+    
+    def test_multiple_parameters_with_defaults(self):
+        """测试多参数类，包含默认值"""
+        class MultiParamService:
+            def __init__(instance, name: str, logger: Logger, debug: bool = False):
+                instance.name = name
+                instance.logger = logger
+                instance.debug = debug
+            
+            def get_config(instance) -> str:
+                instance.logger.log(f"Config for {instance.name}")
+                return f"Service: {instance.name}, Debug: {instance.debug}"
+        
+        # 添加 bool 类型的依赖
+        deps_with_bool = {**self.dependencies, 'debug': True}
+        
+        instance = auto_inject(MultiParamService, deps_with_bool, type_like)
+        assert isinstance(instance, MultiParamService)
+        # type_like 会选择第一个 str 类型的值，即 "test_config"
+        assert instance.name == "test_config"
+        assert isinstance(instance.logger, ConsoleLogger)
+        assert instance.debug is True
+        assert "Service: test_config, Debug: True" in instance.get_config()
+    
+    def test_class_with_complex_types(self):
+        """测试包含复杂类型的类"""
+        class ComplexService:
+            def __init__(self, logger: Logger, db: Database, config: str):
+                self.logger = logger
+                self.db = db
+                self.config = config
+            
+            def execute(self) -> str:
+                self.logger.log(f"Executing with config: {self.config}")
+                result = self.db.query("SELECT * FROM test")
+                return f"Executed: {len(result)} records, Config: {self.config}"
+        
+        instance = auto_inject(ComplexService, self.dependencies, type_like)
+        assert isinstance(instance, ComplexService)
+        assert isinstance(instance.logger, ConsoleLogger)
+        assert isinstance(instance.db, MockDatabase)
+        assert instance.config == "test_config"
+        result = instance.execute()
+        assert "Executed: 1 records" in result
+        assert "Config: test_config" in result
+    
+    def test_class_missing_dependency(self):
+        """测试类缺少必需依赖的情况"""
+        class MissingDepService:
+            def __init__(self, logger: Logger, missing_param: int):
+                self.logger = logger
+                self.missing_param = missing_param
+        
+        # 创建不包含 int 类型依赖的命名空间
+        limited_deps = {
+            'logger': ConsoleLogger(),
+            'config': "test_config"  # str 类型，不会匹配 int
+        }
+        
+        with pytest.raises(ValueError, match="Cannot find matching dependency"):
+            auto_inject(MissingDepService, limited_deps, type_like)
+    
+    def test_class_with_name_like_matching(self):
+        """测试类使用名称匹配策略"""
+        class NameMatchService:
+            def __init__(self, config: str, logger: str):  # 注意：logger 参数类型是 str
+                self.config = config
+                self.logger_info = logger  # 实际会获得 ConsoleLogger 实例
+        
+        instance = auto_inject(NameMatchService, self.dependencies, name_like)
+        assert isinstance(instance, NameMatchService)
+        assert instance.config == "test_config"
+        # name_like 匹配会将 ConsoleLogger 实例赋给 logger_info
+        assert isinstance(instance.logger_info, ConsoleLogger)
+    
+    def test_class_without_explicit_init(self):
+        """测试没有显式 __init__ 方法的类"""
+        class NoInitClass:
+            def get_value(self):
+                return "no_init_value"
+        
+        instance = auto_inject(NoInitClass, self.dependencies, type_like)
+        assert isinstance(instance, NoInitClass)
+        assert instance.get_value() == "no_init_value"
+    
+    def test_class_without_init_with_class_attributes(self):
+        """测试没有 __init__ 方法但有类属性的类"""
+        class NoInitWithAttributes:
+            default_value = "class_attribute"
+            
+            def get_default(self):
+                return self.default_value
+        
+        instance = auto_inject(NoInitWithAttributes, self.dependencies, type_like)
+        assert isinstance(instance, NoInitWithAttributes)
+        assert instance.default_value == "class_attribute"
+        assert instance.get_default() == "class_attribute"
+    
+    def test_class_inherited_without_init(self):
+        """测试继承但没有重写 __init__ 的类"""
+        class BaseClass:
+            def base_method(self):
+                return "base_method_result"
+        
+        class InheritedNoInit(BaseClass):
+            def child_method(self):
+                return "child_method_result"
+        
+        instance = auto_inject(InheritedNoInit, self.dependencies, type_like)
+        assert isinstance(instance, InheritedNoInit)
+        assert instance.base_method() == "base_method_result"
+        assert instance.child_method() == "child_method_result"
+
+
 if __name__ == "__main__":
     pytest.main([__file__]) 
