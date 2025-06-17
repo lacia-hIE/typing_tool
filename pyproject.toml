@@ -1,6 +1,6 @@
 [project]
 name = "typing_tool"
-version = "0.1.9"
+version = "0.1.10"
 description = "python typing tool"
 authors = [
     {name = "luxuncang", email = "luxuncang@qq.com"},
